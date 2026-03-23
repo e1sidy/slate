@@ -510,8 +510,9 @@ func (s *Store) ExpireLeases(ctx context.Context) (int, error) {
 
 // autoUnblockTx checks dependents of the given task within a transaction.
 // If a dependent is blocked and all its blockers are terminal, transitions it to open.
+// Reads through the transaction so it sees uncommitted changes (e.g., the just-closed task).
 func (s *Store) autoUnblockTx(ctx context.Context, tx *sql.Tx, closedID string, actor string) error {
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := tx.QueryContext(ctx,
 		"SELECT from_id FROM dependencies WHERE to_id = ? AND dep_type = 'blocks'", closedID)
 	if err != nil {
 		return err
@@ -531,13 +532,15 @@ func (s *Store) autoUnblockTx(ctx context.Context, tx *sql.Tx, closedID string, 
 	}
 
 	for _, depID := range dependentIDs {
-		task, err := s.Get(ctx, depID)
-		if err != nil || task.Status != StatusBlocked {
+		// Read through tx to see uncommitted state.
+		var status Status
+		err := tx.QueryRowContext(ctx, "SELECT status FROM tasks WHERE id = ?", depID).Scan(&status)
+		if err != nil || status != StatusBlocked {
 			continue
 		}
 
-		// Check if all blockers are terminal.
-		blockerRows, err := s.db.QueryContext(ctx,
+		// Check if all blockers are terminal (read through tx).
+		blockerRows, err := tx.QueryContext(ctx,
 			`SELECT t.status FROM dependencies d JOIN tasks t ON d.to_id = t.id
 			 WHERE d.from_id = ? AND d.dep_type = 'blocks'`, depID)
 		if err != nil {
@@ -546,12 +549,12 @@ func (s *Store) autoUnblockTx(ctx context.Context, tx *sql.Tx, closedID string, 
 
 		allResolved := true
 		for blockerRows.Next() {
-			var status Status
-			if err := blockerRows.Scan(&status); err != nil {
+			var bStatus Status
+			if err := blockerRows.Scan(&bStatus); err != nil {
 				allResolved = false
 				break
 			}
-			if !status.IsTerminal() {
+			if !bStatus.IsTerminal() {
 				allResolved = false
 				break
 			}
