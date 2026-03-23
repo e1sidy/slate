@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/e1sidy/slate"
 	"github.com/spf13/cobra"
@@ -17,6 +19,7 @@ var (
 	jsonOutput bool
 	quietMode  bool
 	actorName  string
+	timeoutStr string
 )
 
 func main() {
@@ -31,6 +34,17 @@ func rootCmd() *cobra.Command {
 		Short: "Lightweight task management CLI backed by SQLite",
 		Long:  "Slate is a task management tool with dependencies, hierarchy, events, and an embeddable Go SDK.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Apply timeout to context if set.
+			if timeoutStr != "" {
+				dur, err := time.ParseDuration(timeoutStr)
+				if err != nil {
+					return fmt.Errorf("invalid timeout %q: %w", timeoutStr, err)
+				}
+				ctx, cancel := context.WithTimeout(cmd.Context(), dur)
+				_ = cancel // context will be cancelled when deadline expires
+				cmd.SetContext(ctx)
+			}
+
 			// Skip store setup for commands that don't need it.
 			name := cmd.Name()
 			if name == "version" || name == "completion" {
@@ -67,6 +81,7 @@ func rootCmd() *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.PersistentFlags().BoolVar(&quietMode, "quiet", false, "Minimal output (just IDs)")
 	cmd.PersistentFlags().StringVar(&actorName, "actor", "cli", "Actor name for event attribution")
+	cmd.PersistentFlags().StringVar(&timeoutStr, "timeout", "", "Operation timeout (e.g. 30s, 5m)")
 
 	// Task management.
 	cmd.AddCommand(createCmd())
