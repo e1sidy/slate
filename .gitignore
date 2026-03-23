@@ -1,0 +1,35 @@
+# Binaries
+/slate
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+*.out
+*.prof
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+*.db
+*.db-wal
+*.db-shm
+
+# JSONL exports
+*.jsonl
+
+# Local config
+.slate/
