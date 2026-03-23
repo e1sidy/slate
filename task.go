@@ -414,6 +414,34 @@ func (s *Store) DeleteTask(ctx context.Context, id string, actor string) error {
 	return nil
 }
 
+// CloseMany closes multiple tasks at once.
+func (s *Store) CloseMany(ctx context.Context, ids []string, reason string, actor string) (int, error) {
+	var closed int
+	for _, id := range ids {
+		if err := s.CloseTask(ctx, id, reason, actor); err != nil {
+			return closed, fmt.Errorf("close %s: %w", id, err)
+		}
+		closed++
+	}
+	return closed, nil
+}
+
+// UpdateMany updates multiple tasks matching a filter with the same params.
+func (s *Store) UpdateMany(ctx context.Context, filter ListParams, p UpdateParams, actor string) (int, error) {
+	tasks, err := s.List(ctx, filter)
+	if err != nil {
+		return 0, err
+	}
+	var updated int
+	for _, t := range tasks {
+		if _, err := s.Update(ctx, t.ID, p, actor); err != nil {
+			return updated, fmt.Errorf("update %s: %w", t.ID, err)
+		}
+		updated++
+	}
+	return updated, nil
+}
+
 // Claim atomically sets assignee and status to in_progress.
 // Returns ErrAlreadyClaimed if another agent has already claimed the task.
 func (s *Store) Claim(ctx context.Context, id string, assignee string) (*ClaimResult, error) {

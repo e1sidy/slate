@@ -86,6 +86,25 @@ func childrenCmd() *cobra.Command {
 	}
 }
 
+func nextCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "next",
+		Short: "Suggest the highest-impact ready task to work on",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			task, err := store.Next(cmd.Context())
+			if err != nil {
+				return err
+			}
+			if jsonOutput {
+				return printJSON(task)
+			}
+			fmt.Printf("Recommended: %s %s %s %s\n",
+				colorStatus(task.Status), colorPriority(task.Priority), task.Title, colorID(task.ID))
+			return nil
+		},
+	}
+}
+
 func eventsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "events <id>",

@@ -84,6 +84,7 @@ func rootCmd() *cobra.Command {
 	cmd.AddCommand(blockedCmd())
 	cmd.AddCommand(childrenCmd())
 	cmd.AddCommand(eventsCmd())
+	cmd.AddCommand(nextCmd())
 
 	// Dependencies.
 	cmd.AddCommand(depCmd())
@@ -103,6 +104,9 @@ func rootCmd() *cobra.Command {
 
 	// Config.
 	cmd.AddCommand(configCmd())
+
+	// Metrics.
+	cmd.AddCommand(metricsCmd())
 
 	// Utilities.
 	cmd.AddCommand(statsCmd())
