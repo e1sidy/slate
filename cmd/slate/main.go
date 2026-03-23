@@ -68,7 +68,47 @@ func rootCmd() *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&quietMode, "quiet", false, "Minimal output (just IDs)")
 	cmd.PersistentFlags().StringVar(&actorName, "actor", "cli", "Actor name for event attribution")
 
+	// Task management.
+	cmd.AddCommand(createCmd())
+	cmd.AddCommand(showCmd())
+	cmd.AddCommand(updateCmd())
+	cmd.AddCommand(closeCmd())
+	cmd.AddCommand(cancelCmd())
+	cmd.AddCommand(reopenCmd())
+	cmd.AddCommand(deleteCmd())
+	cmd.AddCommand(searchCmd())
+
+	// Querying.
+	cmd.AddCommand(listCmd())
+	cmd.AddCommand(readyCmd())
+	cmd.AddCommand(blockedCmd())
+	cmd.AddCommand(childrenCmd())
+	cmd.AddCommand(eventsCmd())
+
+	// Dependencies.
+	cmd.AddCommand(depCmd())
+
+	// Attributes.
+	cmd.AddCommand(attrCmd())
+
+	// Comments.
+	cmd.AddCommand(commentCmd())
+
+	// Checkpoints.
+	cmd.AddCommand(checkpointCmd())
+
+	// Sync.
+	cmd.AddCommand(exportCmd())
+	cmd.AddCommand(importCmd())
+
+	// Config.
+	cmd.AddCommand(configCmd())
+
+	// Utilities.
+	cmd.AddCommand(statsCmd())
+	cmd.AddCommand(doctorCmd())
 	cmd.AddCommand(versionCmd())
+	cmd.AddCommand(completionCmd())
 
 	return cmd
 }
