@@ -79,6 +79,19 @@ store.On(slate.EventStatusChanged, func(e slate.Event) {
 store.CloseTask(ctx, task.ID, "done", "agent-1") // transactional
 ```
 
+## Documentation
+
+| Doc | Contents |
+|-----|----------|
+| [Getting Started](docs/getting-started.md) | Installation, first task, 5-minute walkthrough |
+| [CLI Reference](docs/cli-reference.md) | Every command, flag, and example |
+| [SDK Reference](docs/sdk-reference.md) | Full API for Go embedding |
+| [Concepts](docs/concepts.md) | Status model, hierarchy, dependencies, claims, events |
+| [Architecture](docs/architecture.md) | System design, data flow, schema |
+| [Configuration](docs/configuration.md) | Config file, hooks, env vars |
+| [Design Decisions](docs/design-decisions.md) | Why we chose what we chose |
+| [Export Format](docs/export-format.md) | JSONL spec for backup/sync |
+
 ## Requirements
 
 Go 1.22+
