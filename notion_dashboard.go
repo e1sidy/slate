@@ -22,7 +22,7 @@ func (nc *NotionClient) PushDashboard(ctx context.Context, store *Store) (string
 		return "", fmt.Errorf("get metrics: %w", err)
 	}
 
-	blocks := buildDashboardBlocks(report, now)
+	blocks := buildDashboardBlocks(ctx, store, report, now)
 
 	pageID := nc.Config.DashboardPageID
 	if pageID != "" {
@@ -109,7 +109,7 @@ func (nc *NotionClient) PushWeeklyDigest(ctx context.Context, store *Store) (str
 }
 
 // buildDashboardBlocks creates Notion blocks for the dashboard page.
-func buildDashboardBlocks(report *MetricsReport, now time.Time) []notionapi.Block {
+func buildDashboardBlocks(ctx context.Context, store *Store, report *MetricsReport, now time.Time) []notionapi.Block {
 	var blocks []notionapi.Block
 
 	// Heading.
@@ -121,6 +121,15 @@ func buildDashboardBlocks(report *MetricsReport, now time.Time) []notionapi.Bloc
 	blocks = append(blocks, bulletItem(fmt.Sprintf("Open: %d", report.CurrentOpen)))
 	blocks = append(blocks, bulletItem(fmt.Sprintf("Blocked: %d", report.CurrentBlocked)))
 
+	// Priority breakdown.
+	blocks = append(blocks, heading2("Tasks by Priority"))
+	priorityCounts := countByPriority(ctx, store)
+	for p := 0; p <= 4; p++ {
+		if count, ok := priorityCounts[Priority(p)]; ok && count > 0 {
+			blocks = append(blocks, bulletItem(fmt.Sprintf("P%d: %d", p, count)))
+		}
+	}
+
 	// Metrics.
 	blocks = append(blocks, heading2("Period Metrics"))
 	blocks = append(blocks, bulletItem(fmt.Sprintf("Tasks closed: %d", report.TasksClosed)))
@@ -128,6 +137,24 @@ func buildDashboardBlocks(report *MetricsReport, now time.Time) []notionapi.Bloc
 	blocks = append(blocks, bulletItem(fmt.Sprintf("Tasks cancelled: %d", report.TasksCancelled)))
 	if report.AvgCycleTime > 0 {
 		blocks = append(blocks, bulletItem(fmt.Sprintf("Average cycle time: %s", report.AvgCycleTime.Round(time.Minute))))
+	}
+
+	// Blocked tasks.
+	blockedTasks, _ := store.Blocked(ctx)
+	if len(blockedTasks) > 0 {
+		blocks = append(blocks, heading2(fmt.Sprintf("Blocked Tasks (%d)", len(blockedTasks))))
+		for _, t := range blockedTasks {
+			blocks = append(blocks, bulletItem(fmt.Sprintf("[%s] %s", t.ID, t.Title)))
+		}
+	}
+
+	// Top assignees by throughput.
+	topAssignees := countClosedByAssignee(ctx, store)
+	if len(topAssignees) > 0 {
+		blocks = append(blocks, heading2("Top Assignees"))
+		for _, a := range topAssignees {
+			blocks = append(blocks, bulletItem(fmt.Sprintf("%s: %d closed", a.name, a.count)))
+		}
 	}
 
 	return blocks
@@ -183,6 +210,26 @@ func buildWeeklyBlocks(ctx context.Context, store *Store, from, to time.Time) []
 		blocks = append(blocks, paragraph("No decisions recorded this week."))
 	}
 
+	// Blockers encountered.
+	blockedTasks, _ := store.List(ctx, ListParams{Status: statusPtr(StatusBlocked)})
+	blocks = append(blocks, heading2(fmt.Sprintf("Currently Blocked (%d)", len(blockedTasks))))
+	for _, t := range blockedTasks {
+		blocks = append(blocks, bulletItem(fmt.Sprintf("[%s] %s", t.ID, t.Title)))
+	}
+	if len(blockedTasks) == 0 {
+		blocks = append(blocks, paragraph("No blocked tasks."))
+	}
+
+	// Velocity trend (last 4 weeks).
+	blocks = append(blocks, heading2("Velocity Trend"))
+	for i := 3; i >= 0; i-- {
+		weekEnd := to.AddDate(0, 0, -7*i)
+		weekStart := weekEnd.AddDate(0, 0, -7)
+		throughput, _ := store.Throughput(ctx, weekStart, weekEnd)
+		label := weekStart.Format("Jan 2")
+		blocks = append(blocks, bulletItem(fmt.Sprintf("%s: %d tasks closed", label, throughput)))
+	}
+
 	return blocks
 }
 
@@ -218,4 +265,55 @@ func bulletItem(text string) notionapi.Block {
 
 func statusPtr(s Status) *Status {
 	return &s
+}
+
+// --- Dashboard query helpers ---
+
+// countByPriority counts open/in_progress tasks by priority.
+func countByPriority(ctx context.Context, store *Store) map[Priority]int {
+	counts := make(map[Priority]int)
+	tasks, _ := store.List(ctx, ListParams{})
+	for _, t := range tasks {
+		if t.Status != StatusClosed && t.Status != StatusCancelled {
+			counts[t.Priority]++
+		}
+	}
+	return counts
+}
+
+// assigneeCount is a name+count pair for top assignees.
+type assigneeCount struct {
+	name  string
+	count int
+}
+
+// countClosedByAssignee returns assignees sorted by number of closed tasks (descending).
+func countClosedByAssignee(ctx context.Context, store *Store) []assigneeCount {
+	tasks, _ := store.List(ctx, ListParams{Status: statusPtr(StatusClosed)})
+	counts := make(map[string]int)
+	for _, t := range tasks {
+		if t.Assignee != "" {
+			counts[t.Assignee]++
+		}
+	}
+
+	var result []assigneeCount
+	for name, count := range counts {
+		result = append(result, assigneeCount{name: name, count: count})
+	}
+
+	// Sort descending by count.
+	for i := 0; i < len(result); i++ {
+		for j := i + 1; j < len(result); j++ {
+			if result[j].count > result[i].count {
+				result[i], result[j] = result[j], result[i]
+			}
+		}
+	}
+
+	// Top 10.
+	if len(result) > 10 {
+		result = result[:10]
+	}
+	return result
 }

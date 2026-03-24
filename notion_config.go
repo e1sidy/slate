@@ -55,6 +55,7 @@ type PropertyMap struct {
 	Description string `yaml:"description"`
 	Type        string `yaml:"type"`
 	Progress    string `yaml:"progress"`
+	PRLinks     string `yaml:"pr_links"` // custom attr key → Notion URL property
 }
 
 // DefaultNotionConfig returns a NotionConfig with sensible defaults.

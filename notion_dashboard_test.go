@@ -9,6 +9,14 @@ import (
 )
 
 func TestBuildDashboardBlocks(t *testing.T) {
+	store := tempDB(t)
+	ctx := context.Background()
+
+	// Create some tasks for priority/blocked/assignee counts.
+	store.Create(ctx, CreateParams{Title: "T1", Priority: P1, Assignee: "alice"})
+	t2, _ := store.Create(ctx, CreateParams{Title: "T2", Priority: P2})
+	store.CloseTask(ctx, t2.ID, "done", "alice")
+
 	report := &MetricsReport{
 		TasksCreated:   10,
 		TasksClosed:    5,
@@ -18,24 +26,27 @@ func TestBuildDashboardBlocks(t *testing.T) {
 		AvgCycleTime:   24 * time.Hour,
 	}
 
-	blocks := buildDashboardBlocks(report, time.Now())
+	blocks := buildDashboardBlocks(ctx, store, report, time.Now())
 	if len(blocks) == 0 {
 		t.Error("blocks should not be empty")
 	}
 
-	// Should have at least heading + summary + metrics sections.
-	if len(blocks) < 5 {
-		t.Errorf("blocks = %d, expected at least 5", len(blocks))
+	// Should have heading + summary + priority + metrics + assignees sections.
+	if len(blocks) < 8 {
+		t.Errorf("blocks = %d, expected at least 8", len(blocks))
 	}
 }
 
 func TestBuildDashboardBlocks_NoCycleTime(t *testing.T) {
+	store := tempDB(t)
+	ctx := context.Background()
+
 	report := &MetricsReport{
 		TasksCreated: 3,
 		TasksClosed:  0,
 	}
 
-	blocks := buildDashboardBlocks(report, time.Now())
+	blocks := buildDashboardBlocks(ctx, store, report, time.Now())
 	// Should not include cycle time line.
 	for _, b := range blocks {
 		if bp, ok := b.(notionapi.BulletedListItemBlock); ok {

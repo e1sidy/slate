@@ -400,3 +400,71 @@ func TestPushDependencies(t *testing.T) {
 		t.Errorf("relation page = %q, want page-blocker", rp.Relation[0].ID)
 	}
 }
+
+func TestAddPRLinks(t *testing.T) {
+	store := tempDB(t)
+	ctx := context.Background()
+
+	task, _ := store.Create(ctx, CreateParams{Title: "Test"})
+
+	// Define and set pr_url attribute.
+	store.DefineAttr(ctx, "pr_url", AttrString, "PR URL")
+	store.SetAttr(ctx, task.ID, "pr_url", "https://github.com/org/repo/pull/42")
+
+	cfg := DefaultNotionConfig()
+	cfg.RateLimit = 0
+	cfg.PropertyMap.PRLinks = "PRs"
+	client := NewNotionClientWithAPI(&mockNotionAPI{}, &cfg)
+
+	props := notionapi.Properties{}
+	client.addPRLinks(ctx, store, task.ID, props)
+
+	if urlProp, ok := props["PRs"]; ok {
+		up := urlProp.(notionapi.URLProperty)
+		if up.URL != "https://github.com/org/repo/pull/42" {
+			t.Errorf("URL = %q, want PR URL", up.URL)
+		}
+	} else {
+		t.Error("PRs property missing")
+	}
+}
+
+func TestAddPRLinks_NoAttr(t *testing.T) {
+	store := tempDB(t)
+	ctx := context.Background()
+
+	task, _ := store.Create(ctx, CreateParams{Title: "Test"})
+
+	cfg := DefaultNotionConfig()
+	cfg.RateLimit = 0
+	cfg.PropertyMap.PRLinks = "PRs"
+	client := NewNotionClientWithAPI(&mockNotionAPI{}, &cfg)
+
+	props := notionapi.Properties{}
+	client.addPRLinks(ctx, store, task.ID, props)
+
+	if _, ok := props["PRs"]; ok {
+		t.Error("PRs should not be set when no attr exists")
+	}
+}
+
+func TestAddPRLinks_NotConfigured(t *testing.T) {
+	store := tempDB(t)
+	ctx := context.Background()
+
+	task, _ := store.Create(ctx, CreateParams{Title: "Test"})
+	store.DefineAttr(ctx, "pr_url", AttrString, "PR URL")
+	store.SetAttr(ctx, task.ID, "pr_url", "https://example.com")
+
+	cfg := DefaultNotionConfig()
+	cfg.RateLimit = 0
+	// PRLinks not set (empty)
+	client := NewNotionClientWithAPI(&mockNotionAPI{}, &cfg)
+
+	props := notionapi.Properties{}
+	client.addPRLinks(ctx, store, task.ID, props)
+
+	if len(props) != 0 {
+		t.Error("should not add props when PRLinks not configured")
+	}
+}

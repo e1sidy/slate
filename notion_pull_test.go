@@ -408,3 +408,75 @@ func TestPullComments_EmptySkipped(t *testing.T) {
 		t.Errorf("created = %d, want 0 (empty skipped)", n)
 	}
 }
+
+func TestReadPageBody(t *testing.T) {
+	mock := &mockNotionAPI{
+		getChildrenFn: func(ctx context.Context, id notionapi.BlockID, pagination *notionapi.Pagination) (*notionapi.GetChildrenResponse, error) {
+			return &notionapi.GetChildrenResponse{
+				Results: []notionapi.Block{
+					&notionapi.ParagraphBlock{
+						BasicBlock: notionapi.BasicBlock{Type: notionapi.BlockTypeParagraph},
+						Paragraph:  notionapi.Paragraph{RichText: []notionapi.RichText{{PlainText: "Hello world"}}},
+					},
+					&notionapi.Heading2Block{
+						BasicBlock: notionapi.BasicBlock{Type: notionapi.BlockTypeHeading2},
+						Heading2:   notionapi.Heading{RichText: []notionapi.RichText{{PlainText: "Section"}}},
+					},
+					&notionapi.BulletedListItemBlock{
+						BasicBlock:       notionapi.BasicBlock{Type: notionapi.BlockTypeBulletedListItem},
+						BulletedListItem: notionapi.ListItem{RichText: []notionapi.RichText{{PlainText: "Item 1"}}},
+					},
+				},
+			}, nil
+		},
+	}
+
+	cfg := DefaultNotionConfig()
+	cfg.RateLimit = 0
+	client := NewNotionClientWithAPI(mock, &cfg)
+
+	desc, err := client.readPageBody(context.Background(), "page-1")
+	if err != nil {
+		t.Fatalf("readPageBody: %v", err)
+	}
+	if desc == "" {
+		t.Error("description should not be empty")
+	}
+	// Should contain all 3 text blocks.
+	if !contains(desc, "Hello world") || !contains(desc, "Section") || !contains(desc, "Item 1") {
+		t.Errorf("description missing content: %q", desc)
+	}
+}
+
+func TestReadPageBody_Empty(t *testing.T) {
+	mock := &mockNotionAPI{
+		getChildrenFn: func(ctx context.Context, id notionapi.BlockID, pagination *notionapi.Pagination) (*notionapi.GetChildrenResponse, error) {
+			return &notionapi.GetChildrenResponse{Results: []notionapi.Block{}}, nil
+		},
+	}
+
+	cfg := DefaultNotionConfig()
+	cfg.RateLimit = 0
+	client := NewNotionClientWithAPI(mock, &cfg)
+
+	desc, err := client.readPageBody(context.Background(), "page-1")
+	if err != nil {
+		t.Fatalf("readPageBody: %v", err)
+	}
+	if desc != "" {
+		t.Errorf("empty page body should return empty string, got %q", desc)
+	}
+}
+
+func TestRichTextToPlain(t *testing.T) {
+	rts := []notionapi.RichText{
+		{PlainText: "Hello "},
+		{PlainText: "world"},
+	}
+	got := richTextToPlain(rts)
+	if got != "Hello world" {
+		t.Errorf("richTextToPlain = %q, want 'Hello world'", got)
+	}
+}
+
+// contains is defined in dependency_test.go

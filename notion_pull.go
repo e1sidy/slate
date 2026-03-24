@@ -107,6 +107,16 @@ func (nc *NotionClient) PullChanges(ctx context.Context, store *Store) (*PullRes
 func (nc *NotionClient) pullUpdate(ctx context.Context, store *Store, page *notionapi.Page, rec *NotionSyncRecord) error {
 	updates := nc.propertiesToUpdate(page)
 
+	// Pull description from page body blocks (if description is mapped to page body).
+	if nc.Config.PropertyMap.Description == "" {
+		nc.rateLimit()
+		desc, err := nc.readPageBody(ctx, string(page.ID))
+		if err == nil && desc != "" {
+			updates.params.Description = &desc
+			updates.fields = append(updates.fields, "description")
+		}
+	}
+
 	if len(updates.fields) > 0 {
 		_, err := store.Update(ctx, rec.TaskID, updates.params, "notion-sync")
 		if err != nil {
@@ -170,6 +180,15 @@ func (nc *NotionClient) pullCreate(ctx context.Context, store *Store, page *noti
 	}
 	if updates.params.Description != nil {
 		params.Description = *updates.params.Description
+	}
+
+	// Pull description from page body blocks.
+	if nc.Config.PropertyMap.Description == "" && params.Description == "" {
+		nc.rateLimit()
+		desc, err := nc.readPageBody(ctx, string(page.ID))
+		if err == nil && desc != "" {
+			params.Description = desc
+		}
 	}
 
 	// Resolve parent from Notion relation.
@@ -407,6 +426,68 @@ func (nc *NotionClient) pullComments(ctx context.Context, store *Store, pageID, 
 	}
 
 	return created, nil
+}
+
+// readPageBody reads a Notion page's body blocks and concatenates text content.
+// Only reads paragraph, heading, and list item blocks — skips complex types.
+func (nc *NotionClient) readPageBody(ctx context.Context, pageID string) (string, error) {
+	var parts []string
+	var cursor notionapi.Cursor
+	for {
+		var pagination *notionapi.Pagination
+		if cursor != "" {
+			pagination = &notionapi.Pagination{StartCursor: cursor}
+		}
+
+		resp, err := nc.API.GetBlockChildren(ctx, notionapi.BlockID(pageID), pagination)
+		if err != nil {
+			return "", fmt.Errorf("get block children: %w", err)
+		}
+
+		for _, block := range resp.Results {
+			text := extractBlockText(block)
+			if text != "" {
+				parts = append(parts, text)
+			}
+		}
+
+		if !resp.HasMore || resp.NextCursor == "" {
+			break
+		}
+		cursor = notionapi.Cursor(resp.NextCursor)
+		nc.rateLimit()
+	}
+
+	return strings.Join(parts, "\n"), nil
+}
+
+// extractBlockText extracts plain text from a Notion block.
+func extractBlockText(block notionapi.Block) string {
+	switch b := block.(type) {
+	case *notionapi.ParagraphBlock:
+		return richTextToPlain(b.Paragraph.RichText)
+	case *notionapi.Heading1Block:
+		return richTextToPlain(b.Heading1.RichText)
+	case *notionapi.Heading2Block:
+		return richTextToPlain(b.Heading2.RichText)
+	case *notionapi.Heading3Block:
+		return richTextToPlain(b.Heading3.RichText)
+	case *notionapi.BulletedListItemBlock:
+		return "- " + richTextToPlain(b.BulletedListItem.RichText)
+	case *notionapi.NumberedListItemBlock:
+		return "- " + richTextToPlain(b.NumberedListItem.RichText)
+	default:
+		return ""
+	}
+}
+
+// richTextToPlain concatenates plain text from a RichText array.
+func richTextToPlain(rts []notionapi.RichText) string {
+	var s string
+	for _, rt := range rts {
+		s += rt.PlainText
+	}
+	return s
 }
 
 // stripSlatePrefix removes "[st-xxxx] " prefix from a title string.

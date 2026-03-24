@@ -129,6 +129,9 @@ func (nc *NotionClient) PushAll(ctx context.Context, store *Store, filter ListPa
 func (nc *NotionClient) pushCreate(ctx context.Context, store *Store, task *Task) error {
 	props := nc.taskToProperties(task)
 
+	// Add PR links from custom attribute.
+	nc.addPRLinks(ctx, store, task.ID, props)
+
 	// Add latest checkpoint as progress.
 	if progressProp := nc.Config.PropertyMap.Progress; progressProp != "" {
 		cp, _ := store.LatestCheckpoint(ctx, task.ID)
@@ -170,6 +173,9 @@ func (nc *NotionClient) pushCreate(ctx context.Context, store *Store, task *Task
 // pushUpdate updates an existing Notion page from a Slate task.
 func (nc *NotionClient) pushUpdate(ctx context.Context, store *Store, task *Task, pageID string) error {
 	props := nc.taskToProperties(task)
+
+	// Add PR links from custom attribute.
+	nc.addPRLinks(ctx, store, task.ID, props)
 
 	// Add latest checkpoint as progress.
 	if progressProp := nc.Config.PropertyMap.Progress; progressProp != "" {
@@ -336,6 +342,22 @@ func (nc *NotionClient) pushDependencies(ctx context.Context, store *Store, task
 		Properties: props,
 	})
 	return err
+}
+
+// addPRLinks reads the pr_url custom attribute and adds it as a Notion URL property.
+func (nc *NotionClient) addPRLinks(ctx context.Context, store *Store, taskID string, props notionapi.Properties) {
+	prProp := nc.Config.PropertyMap.PRLinks
+	if prProp == "" {
+		return
+	}
+	attr, err := store.GetAttr(ctx, taskID, "pr_url")
+	if err != nil || attr == nil || attr.Value == "" {
+		return
+	}
+	props[prProp] = notionapi.URLProperty{
+		Type: notionapi.PropertyTypeURL,
+		URL:  attr.Value,
+	}
 }
 
 // descriptionToBlocks converts a description string to Notion paragraph blocks.

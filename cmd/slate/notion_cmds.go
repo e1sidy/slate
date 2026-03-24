@@ -264,9 +264,14 @@ func notionSyncPushCmd() *cobra.Command {
 			}
 
 			// Push all matching tasks.
+			// Default: sync root tasks only (no parent_id). Use --filter to override.
 			filter := slate.ListParams{}
 			if filterStr != "" {
 				filter = parseNotionFilter(filterStr)
+			} else {
+				// Root tasks only: ParentID = pointer to empty string.
+				root := ""
+				filter.ParentID = &root
 			}
 
 			result, err := client.PushAll(cmd.Context(), store, filter)
