@@ -1,11 +1,14 @@
 package slate
 
 import (
+	"bytes"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // RunHooks executes shell hooks from config for the given event.
@@ -32,7 +35,11 @@ func RunHooks(cfg *Config, event Event) {
 
 	for _, h := range hooks {
 		if hookMatchesFilter(h, event) {
-			go executeHook(h.Command, event)
+			if h.Webhook != "" {
+				go executeWebhook(h, event)
+			} else if h.Command != "" {
+				go executeHook(h.Command, event)
+			}
 		}
 	}
 }
@@ -96,6 +103,56 @@ func logHookError(command string, err error, output []byte) {
 	fmt.Fprintf(f, "[%s] hook error: %s: %v\n", timeNowUTC().Format(timeFormat), command, err)
 	if len(output) > 0 {
 		fmt.Fprintf(f, "  output: %s\n", string(output))
+	}
+}
+
+// executeWebhook sends an HTTP request for a webhook hook.
+func executeWebhook(h HookDef, event Event) {
+	method := h.Method
+	if method == "" {
+		method = "POST"
+	}
+
+	body := h.Body
+	if body == "" {
+		body = fmt.Sprintf(`{"task_id":"%s","event":"%s","old":"%s","new":"%s","actor":"%s"}`,
+			event.TaskID, event.Type, event.OldValue, event.NewValue, event.Actor)
+	} else {
+		body = expandHookVars(body, event)
+	}
+
+	url := expandHookVars(h.Webhook, event)
+
+	req, err := http.NewRequest(method, url, bytes.NewBufferString(body))
+	if err != nil {
+		logHookError("webhook: "+url, err, nil)
+		return
+	}
+
+	// Default headers.
+	if req.Header.Get("Content-Type") == "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range h.Headers {
+		req.Header.Set(k, expandHookVars(v, event))
+	}
+
+	timeout := h.Timeout
+	if timeout <= 0 {
+		timeout = 10
+	}
+	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		logHookError("webhook: "+url, err, nil)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		logHookError("webhook: "+url,
+			fmt.Errorf("HTTP %d", resp.StatusCode), nil)
 	}
 }
 

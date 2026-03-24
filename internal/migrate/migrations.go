@@ -150,6 +150,34 @@ CREATE TABLE IF NOT EXISTS notion_sync (
 CREATE INDEX IF NOT EXISTS idx_notion_page ON notion_sync(notion_page_id);
 `,
 	},
+	{
+		Version: 5,
+		SQL: `
+CREATE VIRTUAL TABLE IF NOT EXISTS tasks_fts USING fts5(
+    task_id, title, description, notes
+);
+
+-- Populate FTS index from existing tasks.
+INSERT INTO tasks_fts(task_id, title, description, notes)
+    SELECT id, title, description, notes FROM tasks;
+
+-- Keep FTS in sync with triggers.
+CREATE TRIGGER IF NOT EXISTS tasks_fts_insert AFTER INSERT ON tasks BEGIN
+    INSERT INTO tasks_fts(task_id, title, description, notes)
+    VALUES (new.id, new.title, new.description, new.notes);
+END;
+
+CREATE TRIGGER IF NOT EXISTS tasks_fts_update AFTER UPDATE ON tasks BEGIN
+    DELETE FROM tasks_fts WHERE task_id = old.id;
+    INSERT INTO tasks_fts(task_id, title, description, notes)
+    VALUES (new.id, new.title, new.description, new.notes);
+END;
+
+CREATE TRIGGER IF NOT EXISTS tasks_fts_delete AFTER DELETE ON tasks BEGIN
+    DELETE FROM tasks_fts WHERE task_id = old.id;
+END;
+`,
+	},
 }
 
 // Run applies all pending migrations to the database.

@@ -89,7 +89,7 @@ func (s *Store) DepTree(ctx context.Context, id string) (string, error) {
 
 // DetectCycles finds all cycles in the dependency graph.
 func (s *Store) DetectCycles(ctx context.Context) ([][]string, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT from_id, to_id FROM dependencies WHERE dep_type = 'blocks'")
+	rows, err := s.db.QueryContext(ctx, "SELECT from_id, to_id FROM dependencies WHERE dep_type IN ('blocks', 'conditional_blocks')")
 	if err != nil {
 		return nil, fmt.Errorf("query dependencies: %w", err)
 	}
@@ -166,7 +166,7 @@ func (s *Store) wouldCreateCycle(ctx context.Context, fromID, toID string) bool 
 		visited[current] = true
 
 		rows, err := s.db.QueryContext(ctx,
-			"SELECT to_id FROM dependencies WHERE from_id = ? AND dep_type = 'blocks'",
+			"SELECT to_id FROM dependencies WHERE from_id = ? AND dep_type IN ('blocks', 'conditional_blocks')",
 			current,
 		)
 		if err != nil {

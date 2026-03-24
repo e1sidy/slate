@@ -107,13 +107,15 @@ func (t TaskType) IsValid() bool {
 type DepType string
 
 const (
-	Blocks     DepType = "blocks"
-	RelatesTo  DepType = "relates_to"
-	Duplicates DepType = "duplicates"
+	Blocks           DepType = "blocks"
+	RelatesTo        DepType = "relates_to"
+	Duplicates       DepType = "duplicates"
+	DiscoveredFrom   DepType = "discovered_from"
+	ConditionalBlocks DepType = "conditional_blocks"
 )
 
 // ValidDepTypes is the set of valid dependency types.
-var ValidDepTypes = []DepType{Blocks, RelatesTo, Duplicates}
+var ValidDepTypes = []DepType{Blocks, RelatesTo, Duplicates, DiscoveredFrom, ConditionalBlocks}
 
 // IsValid returns true if d is a recognized dependency type.
 func (d DepType) IsValid() bool {

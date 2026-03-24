@@ -151,7 +151,7 @@ func (s *Store) Ready(ctx context.Context, parentID string) ([]*Task, error) {
 			SELECT 1 FROM dependencies d
 			JOIN tasks blocker ON d.to_id = blocker.id
 			WHERE d.from_id = t.id
-			AND d.dep_type = 'blocks'
+			AND d.dep_type IN ('blocks', 'conditional_blocks')
 			AND blocker.status NOT IN ('closed', 'cancelled')
 		)`
 

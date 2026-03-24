@@ -87,10 +87,45 @@ func childrenCmd() *cobra.Command {
 }
 
 func nextCmd() *cobra.Command {
-	return &cobra.Command{
+	var criticalPath bool
+
+	cmd := &cobra.Command{
 		Use:   "next",
 		Short: "Suggest the highest-impact ready task to work on",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if criticalPath {
+				result, err := store.CriticalPath(cmd.Context())
+				if err != nil {
+					return err
+				}
+				if jsonOutput {
+					return printJSON(result)
+				}
+				if len(result.Path) > 0 {
+					fmt.Printf("Critical path (%dh estimated):\n", result.TotalEstimate)
+					for i, t := range result.Path {
+						arrow := ""
+						if i > 0 {
+							arrow = "  → "
+						}
+						fmt.Printf("%s%s %s (%s)\n", arrow, colorID(t.ID), t.Title, colorStatus(t.Status))
+					}
+				}
+				if len(result.Bottlenecks) > 0 {
+					fmt.Printf("\nBottlenecks:\n")
+					for _, t := range result.Bottlenecks {
+						fmt.Printf("  %s %s (unblocks downstream)\n", colorID(t.ID), t.Title)
+					}
+				}
+				if len(result.Parallel) > 0 {
+					fmt.Printf("\nParallelizable:\n")
+					for _, t := range result.Parallel {
+						fmt.Printf("  %s %s\n", colorID(t.ID), t.Title)
+					}
+				}
+				return nil
+			}
+
 			task, err := store.Next(cmd.Context())
 			if err != nil {
 				return err
@@ -103,6 +138,8 @@ func nextCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&criticalPath, "critical-path", false, "Show full critical path analysis")
+	return cmd
 }
 
 func eventsCmd() *cobra.Command {

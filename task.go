@@ -541,7 +541,7 @@ func (s *Store) ExpireLeases(ctx context.Context) (int, error) {
 // Reads through the transaction so it sees uncommitted changes (e.g., the just-closed task).
 func (s *Store) autoUnblockTx(ctx context.Context, tx *sql.Tx, closedID string, actor string) error {
 	rows, err := tx.QueryContext(ctx,
-		"SELECT from_id FROM dependencies WHERE to_id = ? AND dep_type = 'blocks'", closedID)
+		"SELECT from_id FROM dependencies WHERE to_id = ? AND dep_type IN ('blocks', 'conditional_blocks')", closedID)
 	if err != nil {
 		return err
 	}
@@ -570,7 +570,7 @@ func (s *Store) autoUnblockTx(ctx context.Context, tx *sql.Tx, closedID string, 
 		// Check if all blockers are terminal (read through tx).
 		blockerRows, err := tx.QueryContext(ctx,
 			`SELECT t.status FROM dependencies d JOIN tasks t ON d.to_id = t.id
-			 WHERE d.from_id = ? AND d.dep_type = 'blocks'`, depID)
+			 WHERE d.from_id = ? AND d.dep_type IN ('blocks', 'conditional_blocks')`, depID)
 		if err != nil {
 			continue
 		}

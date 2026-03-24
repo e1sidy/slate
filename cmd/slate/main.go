@@ -123,6 +123,12 @@ func rootCmd() *cobra.Command {
 	// Notion sync.
 	cmd.AddCommand(notionCmd())
 
+	// Archive.
+	cmd.AddCommand(archiveCmd())
+
+	// Graph.
+	cmd.AddCommand(graphCmd())
+
 	// Metrics.
 	cmd.AddCommand(metricsCmd())
 

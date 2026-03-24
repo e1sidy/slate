@@ -29,9 +29,14 @@ type HookConfig struct {
 	OnAssign       []HookDef `yaml:"on_assign"`
 }
 
-// HookDef defines a single hook command with optional filter.
+// HookDef defines a single hook (shell command or webhook) with optional filter.
 type HookDef struct {
-	Command string            `yaml:"command"`
+	Command string            `yaml:"command,omitempty"`
+	Webhook string            `yaml:"webhook,omitempty"`  // URL for webhook hooks
+	Method  string            `yaml:"method,omitempty"`   // HTTP method (default: POST)
+	Headers map[string]string `yaml:"headers,omitempty"`  // HTTP headers
+	Body    string            `yaml:"body,omitempty"`     // JSON body template with {id}, {new}, etc.
+	Timeout int               `yaml:"timeout,omitempty"`  // Timeout in seconds (default: 10)
 	Filter  map[string]string `yaml:"filter,omitempty"`
 }
 

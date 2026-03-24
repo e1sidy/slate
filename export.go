@@ -187,7 +187,14 @@ func (s *Store) ImportJSONL(ctx context.Context, r io.Reader) error {
 		}
 	}
 
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	// Rebuild FTS index after import.
+	s.RebuildFTSIndex(ctx)
+
+	return nil
 }
 
 // ExportEvents writes all events as JSONL.
