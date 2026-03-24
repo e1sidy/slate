@@ -1,0 +1,45 @@
+version: 2
+
+builds:
+  - main: ./cmd/slate
+    binary: slate
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - format: tar.gz
+    name_template: "slate_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "checksums.txt"
+
+brews:
+  - repository:
+      owner: e1sidy
+      name: homebrew-tap
+    directory: Formula
+    homepage: https://github.com/e1sidy/slate
+    description: Lightweight task management CLI backed by SQLite
+    license: MIT
+    install: |
+      bin.install "slate"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
