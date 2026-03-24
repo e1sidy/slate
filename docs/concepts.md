@@ -181,3 +181,37 @@ Count of tasks closed in a time range, derived from events table.
 ### Next
 
 `Next()` suggests the highest-impact ready task by counting transitive dependents (BFS). The task that unblocks the most downstream work is recommended first.
+
+## Notion Sync
+
+### Bidirectional Sync Model
+
+Slate syncs with Notion bidirectionally: local changes push to Notion, Notion changes pull to Slate. Sync is **polling-based** (on-demand via `slate notion sync`).
+
+### Field-Level Merge
+
+Changes to different fields don't conflict. A PM can change priority in Notion while an agent updates status in Slate — both changes apply cleanly.
+
+### Configurable Mapping
+
+Real Notion databases have different schemas. Slate uses configurable mappings (`notion.yaml`) for:
+- **Property names**: which Notion column maps to which Slate field
+- **Status values**: many-to-one mapping (e.g., "In Review" + "On QA" both → `in_progress`)
+- **Priority values**: Slate P0-P4 ↔ Notion High/Medium/Low
+
+### Conflict Resolution
+
+When both sides change the same field between syncs:
+1. **Detection**: Compare Slate events timestamps vs Notion `last_edited_time`
+2. **Auto-resolve**: Last-write-wins (most recent timestamp wins)
+3. **Manual override**: `slate notion resolve <id> --prefer local|notion`
+
+### Sync Records
+
+The `notion_sync` table tracks which Slate tasks are linked to which Notion pages. Cascade-deletes when the Slate task is deleted.
+
+### Parent Relations
+
+Parents are **bidirectional** — assigned in either Slate or Notion and synced both ways. Push uses two-pass (parents first), pull resolves recursively.
+
+See [Notion Sync Guide](notion-sync.md) for full documentation.

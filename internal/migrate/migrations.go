@@ -134,6 +134,22 @@ CREATE TABLE IF NOT EXISTS checkpoint_files (
 CREATE INDEX IF NOT EXISTS idx_checkpoint_files ON checkpoint_files(checkpoint_id);
 `,
 	},
+	{
+		Version: 4,
+		SQL: `
+CREATE TABLE IF NOT EXISTS notion_sync (
+    task_id         TEXT NOT NULL,
+    notion_page_id  TEXT NOT NULL,
+    last_synced_at  TEXT NOT NULL,
+    sync_direction  TEXT DEFAULT 'both',
+    conflict_status TEXT DEFAULT '',
+    PRIMARY KEY (task_id),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_notion_page ON notion_sync(notion_page_id);
+`,
+	},
 }
 
 // Run applies all pending migrations to the database.

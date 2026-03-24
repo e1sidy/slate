@@ -418,6 +418,99 @@ func DefaultConfig() Config
 
 ---
 
+## Notion Sync
+
+### NotionConfig
+
+```go
+func LoadNotionConfig(home string) (*NotionConfig, error)
+func SaveNotionConfig(home string, cfg *NotionConfig) error
+func DeleteNotionConfig(home string) error
+func DefaultNotionConfig() NotionConfig
+func NotionConfigPath(home string) string
+```
+
+`LoadNotionConfig` returns `nil, nil` if not connected. Config stored in `~/.slate/notion.yaml` (0600 permissions).
+
+**NotionConfig mapping helpers:**
+```go
+func (c *NotionConfig) StatusToNotion(slateStatus string) string
+func (c *NotionConfig) StatusFromNotion(notionStatus string) string
+func (c *NotionConfig) PriorityToNotion(slatePriority int) string
+func (c *NotionConfig) PriorityFromNotion(notionPriority string) int
+```
+
+### NotionClient
+
+```go
+func NewNotionClient(cfg *NotionConfig) *NotionClient
+func NewNotionClientWithAPI(api NotionAPI, cfg *NotionConfig) *NotionClient
+```
+
+`NewNotionClientWithAPI` accepts a mock for testing.
+
+```go
+func (nc *NotionClient) Ping(ctx context.Context) error
+func (nc *NotionClient) EnsureProperties(ctx context.Context) (created []string, warnings []string, err error)
+func (nc *NotionClient) LookupUser(name string) (notionapi.User, bool)
+```
+
+### Push Sync
+
+```go
+func (nc *NotionClient) PushTask(ctx context.Context, store *Store, taskID string) error
+func (nc *NotionClient) PushAll(ctx context.Context, store *Store, filter ListParams) (*PushResult, error)
+```
+
+`PushAll` uses two-pass: create/update all pages, then set parent relations and dependencies.
+
+### Pull Sync
+
+```go
+func (nc *NotionClient) PullChanges(ctx context.Context, store *Store) (*PullResult, error)
+```
+
+Queries Notion for pages modified since last sync. Creates/updates Slate tasks, syncs comments.
+
+### Bidirectional Sync
+
+```go
+func (nc *NotionClient) Sync(ctx context.Context, store *Store, filter ListParams) (*SyncResult, error)
+func (nc *NotionClient) ResolveConflict(ctx context.Context, store *Store, taskID, preference string) error
+```
+
+`Sync` performs push + pull + conflict detection. `ResolveConflict` preference: `"local"` or `"notion"`.
+
+### Dashboard
+
+```go
+func (nc *NotionClient) PushDashboard(ctx context.Context, store *Store) (string, error)
+func (nc *NotionClient) PushWeeklyDigest(ctx context.Context, store *Store) (string, error)
+```
+
+Returns the Notion page ID.
+
+### Schema Inference
+
+```go
+func InferMapping(ctx context.Context, api NotionAPI, databaseID string) (*NotionConfig, error)
+```
+
+Auto-detects property mapping, status mapping, and priority mapping from an existing Notion database.
+
+### Sync Records (Store methods)
+
+```go
+func (s *Store) GetSyncRecord(ctx context.Context, taskID string) (*NotionSyncRecord, error)
+func (s *Store) GetSyncRecordByPage(ctx context.Context, pageID string) (*NotionSyncRecord, error)
+func (s *Store) UpsertSyncRecord(ctx context.Context, r *NotionSyncRecord) error
+func (s *Store) DeleteSyncRecord(ctx context.Context, taskID string) error
+func (s *Store) ListSyncRecords(ctx context.Context) ([]*NotionSyncRecord, error)
+func (s *Store) ListConflicts(ctx context.Context) ([]*NotionSyncRecord, error)
+```
+
+---
+
 ## Types Quick Reference
 
 | Type | Values |

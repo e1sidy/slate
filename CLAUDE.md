@@ -20,7 +20,13 @@ slate/
 ├── export.go             # ExportJSONL, ImportJSONL, ExportEvents (full export)
 ├── doctor.go             # Doctor(): health checks
 ├── util.go               # Time helpers, JSON label marshaling
-├── internal/migrate/     # Versioned SQLite schema migrations (v1-v3)
+├── notion.go             # NotionClient, NotionAPI interface, sync records, EnsureProperties
+├── notion_config.go      # NotionConfig, property/status/priority mapping, Load/Save
+├── notion_push.go        # PushTask, PushAll (two-pass), field mapping Slate→Notion
+├── notion_pull.go        # PullChanges, pullUpdate, pullCreate, comments, Notion→Slate mapping
+├── notion_sync.go        # Sync (bidirectional), conflict detection, resolution
+├── notion_dashboard.go   # PushDashboard, PushWeeklyDigest, Notion block builders
+├── internal/migrate/     # Versioned SQLite schema migrations (v1-v4)
 ├── cmd/slate/            # CLI (cobra) — thin wrapper over SDK
 └── *_test.go             # SDK unit tests
 ```
@@ -83,3 +89,4 @@ deferred
 - **Events**: Every mutation auto-records an event. DB write → event insert → SDK callbacks → shell hooks.
 - **Transactions**: `CloseTask` and `CancelTask` wrap all DB operations in a transaction for crash safety.
 - **Full export**: `ExportJSONL` exports tasks + comments + deps + attrs + checkpoints (not just tasks).
+- **Notion sync**: Config in `~/.slate/notion.yaml` (separate, 0600 perms). `NotionAPI` interface for mock testing. Schema migration v4 adds `notion_sync` table. Status/priority mapped via configurable `notion.yaml` settings. `jomei/notionapi` SDK dependency.

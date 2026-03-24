@@ -120,6 +120,9 @@ func rootCmd() *cobra.Command {
 	// Config.
 	cmd.AddCommand(configCmd())
 
+	// Notion sync.
+	cmd.AddCommand(notionCmd())
+
 	// Metrics.
 	cmd.AddCommand(metricsCmd())
 

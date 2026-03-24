@@ -35,6 +35,10 @@ slate close st-a3f8 --reason "Fixed in commit abc123"
 - **Mutable comments** — add, edit, delete (not just append-only).
 - **Structured checkpoints** — progress snapshots with done/decisions/next/blockers/files.
 - **Full export** — JSONL backup of tasks + comments + deps + attrs + checkpoints.
+- **Notion bidirectional sync** — push/pull tasks, comments, parent relations, and dependencies to Notion.
+- **Configurable field mapping** — map Slate fields to existing Notion properties with status/priority translation.
+- **Conflict resolution** — field-level conflict detection with last-write-wins and manual override.
+- **Metrics dashboard** — push task metrics and weekly digests to Notion pages.
 - **Agent-friendly** — `--json` output on all commands, `--actor` flag for attribution.
 - **Shell completions** — dynamic tab-completion for task IDs, flags, and attribute keys.
 - **Health checks** — `slate doctor` validates database integrity.
@@ -53,6 +57,10 @@ slate close st-a3f8 --reason "Fixed in commit abc123"
 | `slate ready` | Tasks with no unresolved blockers |
 | `slate search <query>` | Search titles and descriptions |
 | `slate doctor` | Run health checks |
+| `slate notion connect --auto` | Connect to Notion database |
+| `slate notion sync push` | Push tasks to Notion |
+| `slate notion sync pull` | Pull changes from Notion |
+| `slate notion dashboard` | Push metrics to Notion |
 
 ## SDK Usage
 
@@ -90,6 +98,7 @@ store.CloseTask(ctx, task.ID, "done", "agent-1") // transactional
 | [Architecture](docs/architecture.md) | System design, data flow, schema |
 | [Configuration](docs/configuration.md) | Config file, hooks, env vars |
 | [Design Decisions](docs/design-decisions.md) | Why we chose what we chose |
+| [Notion Sync](docs/notion-sync.md) | Setup, field mapping, sync, conflicts, dashboard |
 | [Export Format](docs/export-format.md) | JSONL spec for backup/sync |
 
 ## Requirements

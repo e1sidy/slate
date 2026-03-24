@@ -136,6 +136,22 @@ store, _ := slate.Open(ctx, cfg.DBPath, slate.WithConfig(cfg))
 slate.EnableHooks(store, cfg) // registers catch-all listener
 ```
 
+## Notion Configuration
+
+Notion config is stored separately in `~/.slate/notion.yaml` (0600 permissions) for security. See the [Notion Sync Guide](notion-sync.md) for full documentation.
+
+| Path | Purpose |
+|------|---------|
+| `~/.slate/notion.yaml` | Notion API token, database ID, property/status/priority mappings |
+
+**Key config sections:**
+- `property_map` — maps Slate fields to Notion property names
+- `status_map` — bidirectional status mapping (many-to-one for pull)
+- `priority_map` / `priority_reverse` — priority mapping
+- `dep_map` — dependency type → Notion relation property
+- `auto_create_properties` — create missing Notion properties on first sync
+- `rate_limit` — delay between API calls (default: 334ms ≈ 3 req/sec)
+
 ## Environment Variables
 
 | Variable | Purpose | Default |

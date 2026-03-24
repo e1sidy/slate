@@ -701,3 +701,126 @@ slate completion fish | source      # fish
 ```
 
 Provides dynamic completion for task IDs, statuses, types, and priorities.
+
+---
+
+## Notion Sync
+
+### slate notion connect
+
+Connect to a Notion database.
+
+```
+slate notion connect [flags]
+```
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--token` | string | — | Notion API token (**required**) |
+| `--database-id` | string | — | Notion database ID (**required**) |
+| `--auto` | bool | false | Auto-detect property mapping from database schema |
+
+Validates the token and database access, caches workspace users, saves config to `~/.slate/notion.yaml`.
+
+---
+
+### slate notion disconnect
+
+Remove Notion connection config.
+
+```
+slate notion disconnect
+```
+
+---
+
+### slate notion status
+
+Show connection status, property mapping, and sync stats.
+
+```
+slate notion status
+```
+
+---
+
+### slate notion sync push
+
+Push Slate tasks to Notion.
+
+```
+slate notion sync push [flags]
+```
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--task` | string | — | Push a single task by ID |
+| `--filter` | string | — | Filter tasks (e.g. `type:epic`, `status:open`) |
+
+Creates new Notion pages or updates existing ones. Two-pass strategy for parent relations.
+
+---
+
+### slate notion sync pull
+
+Pull Notion changes to Slate.
+
+```
+slate notion sync pull
+```
+
+Detects pages modified since last sync, updates local tasks, creates new tasks from unsynced pages, syncs comments.
+
+---
+
+### slate notion sync all
+
+Full bidirectional sync.
+
+```
+slate notion sync all [flags]
+```
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--filter` | string | — | Filter tasks for push |
+
+Pushes local changes, pulls remote changes, detects and auto-resolves conflicts with last-write-wins.
+
+---
+
+### slate notion conflicts
+
+List unresolved sync conflicts.
+
+```
+slate notion conflicts
+```
+
+---
+
+### slate notion resolve
+
+Manually resolve a sync conflict.
+
+```
+slate notion resolve <task-id> [flags]
+```
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--prefer` | string | — | Resolution: `local` or `notion` (**required**) |
+
+---
+
+### slate notion dashboard
+
+Push metrics dashboard to Notion.
+
+```
+slate notion dashboard [flags]
+```
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--weekly` | bool | false | Create weekly digest instead of dashboard |
