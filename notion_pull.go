@@ -36,9 +36,13 @@ func (nc *NotionClient) PullChanges(ctx context.Context, store *Store) (*PullRes
 	}
 
 	// Query pages from the Notion database.
-	// When user_id is configured, only pull pages assigned to that user.
+	// When user_id and/or sprint_id are configured, filter accordingly.
 	var allPages []*notionapi.Page
 	var cursor notionapi.Cursor
+
+	// Build query filter from config (user_id + sprint_id).
+	queryFilter := nc.buildPullFilter()
+
 	for {
 		req := &notionapi.DatabaseQueryRequest{
 			PageSize: 100,
@@ -46,15 +50,8 @@ func (nc *NotionClient) PullChanges(ctx context.Context, store *Store) (*PullRes
 		if cursor != "" {
 			req.StartCursor = cursor
 		}
-
-		// Filter by assignee if user_id is configured.
-		if nc.Config.UserID != "" && nc.Config.PropertyMap.Assignee != "" {
-			req.Filter = &notionapi.PropertyFilter{
-				Property: nc.Config.PropertyMap.Assignee,
-				People: &notionapi.PeopleFilterCondition{
-					Contains: nc.Config.UserID,
-				},
-			}
+		if queryFilter != nil {
+			req.Filter = queryFilter
 		}
 
 		nc.rateLimit()
@@ -498,6 +495,45 @@ func richTextToPlain(rts []notionapi.RichText) string {
 		s += rt.PlainText
 	}
 	return s
+}
+
+// buildPullFilter constructs a Notion database query filter from config.
+// Combines user_id (assignee) and sprint_id (relation) filters with AND.
+func (nc *NotionClient) buildPullFilter() notionapi.Filter {
+	var filters []notionapi.Filter
+
+	// Filter by assignee if user_id is configured.
+	if nc.Config.UserID != "" && nc.Config.PropertyMap.Assignee != "" {
+		filters = append(filters, &notionapi.PropertyFilter{
+			Property: nc.Config.PropertyMap.Assignee,
+			People: &notionapi.PeopleFilterCondition{
+				Contains: nc.Config.UserID,
+			},
+		})
+	}
+
+	// Filter by sprint if sprint_id is configured.
+	sprintProp := nc.Config.SprintProperty
+	if sprintProp == "" {
+		sprintProp = "Sprint"
+	}
+	if nc.Config.SprintID != "" && nc.Config.SprintID != "auto" {
+		filters = append(filters, &notionapi.PropertyFilter{
+			Property: sprintProp,
+			Relation: &notionapi.RelationFilterCondition{
+				Contains: nc.Config.SprintID,
+			},
+		})
+	}
+
+	switch len(filters) {
+	case 0:
+		return nil
+	case 1:
+		return filters[0]
+	default:
+		return notionapi.AndCompoundFilter(filters)
+	}
 }
 
 // stripSlatePrefix removes "[st-xxxx] " prefix from a title string.

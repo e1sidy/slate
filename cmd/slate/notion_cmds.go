@@ -319,12 +319,19 @@ func notionSyncPushCmd() *cobra.Command {
 }
 
 func notionSyncPullCmd() *cobra.Command {
-	var force bool
+	var (
+		force      bool
+		sprintFlag string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "pull",
 		Short: "Pull Notion changes to Slate",
-		Long:  "Detects pages modified since last sync and applies changes to local Slate tasks.\nAlso creates new Slate tasks from unsynced Notion pages.",
+		Long: `Detects pages modified since last sync and applies changes to local Slate tasks.
+Also creates new Slate tasks from unsynced Notion pages.
+
+Use --sprint=current to auto-detect and filter by the current sprint.
+Use --sprint=<page-id> to filter by a specific sprint.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			home := slate.DefaultSlateHome()
 			ncfg, err := slate.LoadNotionConfig(home)
@@ -333,6 +340,20 @@ func notionSyncPullCmd() *cobra.Command {
 			}
 			if ncfg == nil {
 				return fmt.Errorf("not connected to Notion. Run: slate notion connect")
+			}
+
+			client := slate.NewNotionClient(ncfg)
+
+			// Handle --sprint flag (overrides config for this run).
+			if sprintFlag != "" {
+				if err := resolveSprintFilter(cmd, client, ncfg, home, sprintFlag); err != nil {
+					return err
+				}
+			} else if ncfg.SprintID == "auto" {
+				// Auto-detect from config.
+				if err := resolveSprintFilter(cmd, client, ncfg, home, "current"); err != nil {
+					return err
+				}
 			}
 
 			// Warn if user_id is not set — will pull ALL users' tasks.
@@ -350,8 +371,6 @@ func notionSyncPullCmd() *cobra.Command {
 					return nil
 				}
 			}
-
-			client := slate.NewNotionClient(ncfg)
 
 			result, err := client.PullChanges(cmd.Context(), store)
 			if err != nil {
@@ -372,7 +391,39 @@ func notionSyncPullCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "Skip user_id warning and pull all tasks")
+	cmd.Flags().StringVar(&sprintFlag, "sprint", "", "Filter by sprint: 'current' (auto-detect) or a sprint page ID")
 	return cmd
+}
+
+// resolveSprintFilter resolves sprint filtering for a pull command.
+// Handles "current" (auto-detect), "auto" (same), or a specific sprint page ID.
+func resolveSprintFilter(cmd *cobra.Command, client *slate.NotionClient, ncfg *slate.NotionConfig, home, sprint string) error {
+	// Ensure sprint database ID is known.
+	if ncfg.SprintDatabaseID == "" {
+		fmt.Fprintln(os.Stderr, "Detecting sprint database...")
+		dbID, propName, err := client.DetectSprintDatabaseID(cmd.Context())
+		if err != nil {
+			return fmt.Errorf("detect sprint database: %w", err)
+		}
+		ncfg.SprintDatabaseID = dbID
+		ncfg.SprintProperty = propName
+		// Persist so we don't re-detect every time.
+		_ = slate.SaveNotionConfig(home, ncfg)
+		fmt.Fprintf(os.Stderr, "Sprint database detected: %s (property: %s)\n", dbID, propName)
+	}
+
+	if sprint == "current" || sprint == "auto" {
+		fmt.Fprintln(os.Stderr, "Detecting current sprint...")
+		sprintID, sprintName, err := client.DetectCurrentSprint(cmd.Context())
+		if err != nil {
+			return fmt.Errorf("detect current sprint: %w", err)
+		}
+		ncfg.SprintID = sprintID
+		fmt.Fprintf(os.Stderr, "Current sprint: %s (%s)\n", sprintName, sprintID)
+	} else {
+		ncfg.SprintID = sprint
+	}
+	return nil
 }
 
 // parseNotionFilter parses a simple filter string into ListParams.

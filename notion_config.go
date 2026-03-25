@@ -46,6 +46,18 @@ type NotionConfig struct {
 	// When set, only pages assigned to this user are pulled.
 	// Find your ID via `slate notion status` after connecting.
 	UserID string `yaml:"user_id"`
+
+	// SprintProperty is the Notion relation property name for sprints (e.g., "Sprint").
+	SprintProperty string `yaml:"sprint_property,omitempty"`
+
+	// SprintDatabaseID is the Notion database ID for the sprints database.
+	// Auto-detected from the Sprint relation property if not set.
+	SprintDatabaseID string `yaml:"sprint_database_id,omitempty"`
+
+	// SprintID is the Notion page ID of the current sprint to filter by.
+	// When set, only tasks linked to this sprint are pulled.
+	// Use "auto" to auto-detect the current sprint from the sprints database.
+	SprintID string `yaml:"sprint_id,omitempty"`
 }
 
 // PropertyMap maps Slate field names to Notion property names.

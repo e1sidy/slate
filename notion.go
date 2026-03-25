@@ -160,6 +160,76 @@ func (nc *NotionClient) LookupUser(name string) (notionapi.User, bool) {
 	return u, ok
 }
 
+// DetectCurrentSprint queries the sprints database and returns the page ID
+// of the sprint with status "Current" or "In Progress". Returns empty string
+// if no current sprint is found.
+func (nc *NotionClient) DetectCurrentSprint(ctx context.Context) (string, string, error) {
+	if nc.Config.SprintDatabaseID == "" {
+		return "", "", fmt.Errorf("sprint_database_id not configured")
+	}
+
+	// Try status-based detection: "Current", then "In Progress".
+	for _, statusName := range []string{"Current", "In Progress"} {
+		nc.rateLimit()
+		resp, err := nc.API.QueryDatabase(ctx, notionapi.DatabaseID(nc.Config.SprintDatabaseID), &notionapi.DatabaseQueryRequest{
+			Filter: &notionapi.PropertyFilter{
+				Property: "Sprint status",
+				Status: &notionapi.StatusFilterCondition{
+					Equals: statusName,
+				},
+			},
+			PageSize: 1,
+		})
+		if err != nil {
+			continue
+		}
+		if len(resp.Results) > 0 {
+			page := &resp.Results[0]
+			name := ""
+			if tp, ok := page.Properties["Sprint name"]; ok {
+				if titleProp, ok := tp.(*notionapi.TitleProperty); ok && len(titleProp.Title) > 0 {
+					name = titleProp.Title[0].PlainText
+				}
+			}
+			return string(page.ID), name, nil
+		}
+	}
+
+	return "", "", fmt.Errorf("no current sprint found in database %s", nc.Config.SprintDatabaseID)
+}
+
+// DetectSprintDatabaseID reads the task database schema to find the Sprint
+// relation property and extract the linked sprints database ID.
+func (nc *NotionClient) DetectSprintDatabaseID(ctx context.Context) (string, string, error) {
+	db, err := nc.API.GetDatabase(ctx, notionapi.DatabaseID(nc.Config.DatabaseID))
+	if err != nil {
+		return "", "", fmt.Errorf("get database: %w", err)
+	}
+
+	// Look for Sprint relation property.
+	sprintPropName := nc.Config.SprintProperty
+	if sprintPropName == "" {
+		sprintPropName = "Sprint" // default
+	}
+
+	prop, ok := db.Properties[sprintPropName]
+	if !ok {
+		return "", "", fmt.Errorf("property %q not found in database", sprintPropName)
+	}
+
+	relCfg, ok := prop.(*notionapi.RelationPropertyConfig)
+	if !ok {
+		return "", "", fmt.Errorf("property %q is not a relation (type: %s)", sprintPropName, prop.GetType())
+	}
+
+	dbID := string(relCfg.Relation.DatabaseID)
+	if dbID == "" {
+		return "", "", fmt.Errorf("property %q has no linked database", sprintPropName)
+	}
+
+	return dbID, sprintPropName, nil
+}
+
 // EnsureProperties reads the Notion database schema and creates any
 // missing properties that are configured in the property map.
 // Only creates properties when auto_create_properties is true.
