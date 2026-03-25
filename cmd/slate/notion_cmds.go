@@ -30,6 +30,7 @@ func notionConnectCmd() *cobra.Command {
 		token      string
 		databaseID string
 		autoInfer  bool
+		userID     string
 	)
 
 	cmd := &cobra.Command{
@@ -82,6 +83,17 @@ func notionConnectCmd() *cobra.Command {
 				return fmt.Errorf("connection failed: %w", err)
 			}
 
+			// Set user ID if provided.
+			if userID != "" {
+				ncfg.UserID = userID
+			} else if len(client.Users) > 0 {
+				fmt.Fprintln(os.Stderr, "\nAvailable users (use --user-id to filter syncs):")
+				for _, u := range client.Users {
+					fmt.Fprintf(os.Stderr, "  %s  %s\n", u.ID, u.Name)
+				}
+				fmt.Fprintln(os.Stderr)
+			}
+
 			// Save config.
 			if err := slate.SaveNotionConfig(home, ncfg); err != nil {
 				return err
@@ -90,6 +102,9 @@ func notionConnectCmd() *cobra.Command {
 			fmt.Fprintf(os.Stderr, "Connected to Notion database %s\n", databaseID)
 			fmt.Fprintf(os.Stderr, "Config saved to %s\n", slate.NotionConfigPath(home))
 
+			if ncfg.UserID != "" {
+				fmt.Fprintf(os.Stderr, "Sync filtered to user: %s\n", ncfg.UserID)
+			}
 			if len(client.Users) > 0 {
 				fmt.Fprintf(os.Stderr, "Cached %d workspace users for assignee mapping\n", len(client.Users))
 			}
@@ -111,6 +126,7 @@ func notionConnectCmd() *cobra.Command {
 	cmd.Flags().StringVar(&token, "token", "", "Notion API token (required)")
 	cmd.Flags().StringVar(&databaseID, "database-id", "", "Notion database ID (required)")
 	cmd.Flags().BoolVar(&autoInfer, "auto", false, "Auto-detect property mapping from database schema")
+	cmd.Flags().StringVar(&userID, "user-id", "", "Notion user ID to filter syncs (only sync this user's tasks)")
 	return cmd
 }
 
@@ -171,6 +187,11 @@ func notionStatusCmd() *cobra.Command {
 			fmt.Printf("Database:  %s\n", ncfg.DatabaseID)
 			fmt.Printf("Rate limit: %s\n", ncfg.RateLimit)
 			fmt.Printf("Auto-create: %t\n", ncfg.AutoCreateProperties)
+			if ncfg.UserID != "" {
+				fmt.Printf("User ID:   %s (sync filtered to this user)\n", ncfg.UserID)
+			} else {
+				fmt.Printf("User ID:   (not set — syncs all users)\n")
+			}
 			fmt.Println()
 
 			fmt.Println("Property Mapping:")

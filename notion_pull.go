@@ -35,8 +35,8 @@ func (nc *NotionClient) PullChanges(ctx context.Context, store *Store) (*PullRes
 		syncByPage[r.NotionPageID] = r
 	}
 
-	// Query all pages from the Notion database.
-	// For synced pages, we'll filter by last_edited_time > last_synced_at.
+	// Query pages from the Notion database.
+	// When user_id is configured, only pull pages assigned to that user.
 	var allPages []*notionapi.Page
 	var cursor notionapi.Cursor
 	for {
@@ -45,6 +45,16 @@ func (nc *NotionClient) PullChanges(ctx context.Context, store *Store) (*PullRes
 		}
 		if cursor != "" {
 			req.StartCursor = cursor
+		}
+
+		// Filter by assignee if user_id is configured.
+		if nc.Config.UserID != "" && nc.Config.PropertyMap.Assignee != "" {
+			req.Filter = &notionapi.PropertyFilter{
+				Property: nc.Config.PropertyMap.Assignee,
+				People: &notionapi.PeopleFilterCondition{
+					Contains: nc.Config.UserID,
+				},
+			}
 		}
 
 		nc.rateLimit()

@@ -41,6 +41,11 @@ type NotionConfig struct {
 
 	// AutoCreateProperties controls whether to auto-create missing Notion properties.
 	AutoCreateProperties bool `yaml:"auto_create_properties"`
+
+	// UserID is the Notion user ID to filter syncs by.
+	// When set, only pages assigned to this user are pulled.
+	// Find your ID via `slate notion status` after connecting.
+	UserID string `yaml:"user_id"`
 }
 
 // PropertyMap maps Slate field names to Notion property names.
