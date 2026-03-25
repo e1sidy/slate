@@ -319,7 +319,9 @@ func notionSyncPushCmd() *cobra.Command {
 }
 
 func notionSyncPullCmd() *cobra.Command {
-	return &cobra.Command{
+	var force bool
+
+	cmd := &cobra.Command{
 		Use:   "pull",
 		Short: "Pull Notion changes to Slate",
 		Long:  "Detects pages modified since last sync and applies changes to local Slate tasks.\nAlso creates new Slate tasks from unsynced Notion pages.",
@@ -331,6 +333,22 @@ func notionSyncPullCmd() *cobra.Command {
 			}
 			if ncfg == nil {
 				return fmt.Errorf("not connected to Notion. Run: slate notion connect")
+			}
+
+			// Warn if user_id is not set — will pull ALL users' tasks.
+			if ncfg.UserID == "" && !force {
+				fmt.Fprintln(os.Stderr, "⚠ Warning: user_id is not set in notion.yaml.")
+				fmt.Fprintln(os.Stderr, "  This will pull ALL tasks from the database, not just yours.")
+				fmt.Fprintln(os.Stderr, "  Set user_id with: slate notion connect --user-id <your-notion-user-id>")
+				fmt.Fprintln(os.Stderr, "  Or use --force to proceed anyway.")
+				fmt.Fprint(os.Stderr, "\nContinue? [y/N] ")
+
+				var answer string
+				fmt.Scanln(&answer)
+				if answer != "y" && answer != "Y" && answer != "yes" {
+					fmt.Fprintln(os.Stderr, "Aborted.")
+					return nil
+				}
 			}
 
 			client := slate.NewNotionClient(ncfg)
@@ -352,6 +370,9 @@ func notionSyncPullCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "Skip user_id warning and pull all tasks")
+	return cmd
 }
 
 // parseNotionFilter parses a simple filter string into ListParams.
