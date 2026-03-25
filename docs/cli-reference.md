@@ -719,6 +719,7 @@ slate notion connect [flags]
 | `--token` | string | — | Notion API token (**required**) |
 | `--database-id` | string | — | Notion database ID (**required**) |
 | `--auto` | bool | false | Auto-detect property mapping from database schema |
+| `--user-id` | string | — | Notion user ID to filter syncs (only sync this user's tasks) |
 
 Validates the token and database access, caches workspace users, saves config to `~/.slate/notion.yaml`.
 
@@ -766,10 +767,17 @@ Creates new Notion pages or updates existing ones. Two-pass strategy for parent 
 Pull Notion changes to Slate.
 
 ```
-slate notion sync pull
+slate notion sync pull [flags]
 ```
 
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--force` | bool | false | Skip user_id warning and pull all tasks |
+| `--sprint` | string | — | Filter by sprint: `current` (auto-detect) or a sprint page ID |
+
 Detects pages modified since last sync, updates local tasks, creates new tasks from unsynced pages, syncs comments.
+
+When `--sprint=current` is used, auto-detects the current sprint from the sprints database (looks for status "Current" or "In Progress"). Combined with `user_id`, filters by both assignee AND sprint.
 
 ---
 

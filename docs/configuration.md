@@ -151,6 +151,10 @@ Notion config is stored separately in `~/.slate/notion.yaml` (0600 permissions) 
 - `dep_map` — dependency type → Notion relation property
 - `auto_create_properties` — create missing Notion properties on first sync
 - `rate_limit` — delay between API calls (default: 334ms ≈ 3 req/sec)
+- `user_id` — Notion user ID to filter syncs by assignee
+- `sprint_property` — Notion relation property name for sprints (default: "Sprint")
+- `sprint_database_id` — Notion sprints database ID (auto-detected from relation)
+- `sprint_id` — Sprint page ID to filter by, or `auto` to auto-detect current sprint each pull
 
 ## Environment Variables
 

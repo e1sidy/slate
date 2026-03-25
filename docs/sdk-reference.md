@@ -455,6 +455,15 @@ func (nc *NotionClient) EnsureProperties(ctx context.Context) (created []string,
 func (nc *NotionClient) LookupUser(name string) (notionapi.User, bool)
 ```
 
+### Sprint Detection
+
+```go
+func (nc *NotionClient) DetectSprintDatabaseID(ctx context.Context) (dbID string, propName string, err error)
+func (nc *NotionClient) DetectCurrentSprint(ctx context.Context) (sprintID string, sprintName string, err error)
+```
+
+`DetectSprintDatabaseID` reads the task database schema to find the Sprint relation property and extracts the linked sprints database ID. `DetectCurrentSprint` queries the sprints database for a sprint with status "Current" (falls back to "In Progress").
+
 ### Push Sync
 
 ```go
@@ -471,6 +480,8 @@ func (nc *NotionClient) PullChanges(ctx context.Context, store *Store) (*PullRes
 ```
 
 Queries Notion for pages modified since last sync. Creates/updates Slate tasks, syncs comments.
+
+When `NotionConfig.SprintID` is set (and not `"auto"`), pull filters by both assignee and sprint using a compound AND filter. Set `SprintProperty` (default: "Sprint") and `SprintDatabaseID` for sprint detection.
 
 ### Bidirectional Sync
 

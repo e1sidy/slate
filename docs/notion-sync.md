@@ -121,7 +121,14 @@ Creates Notion pages for new tasks, updates existing pages. Uses two-pass strate
 ### Pull (Notion → Slate)
 
 ```bash
+# Pull all tasks (filtered by user_id if set)
 slate notion sync pull
+
+# Pull only current sprint's tasks (auto-detects sprint)
+slate notion sync pull --sprint=current
+
+# Pull a specific sprint by page ID
+slate notion sync pull --sprint=2c4b8ace-64ab-8020-8337-dde3acac1019
 ```
 
 Detects Notion pages modified since last sync. Updates local tasks, creates new tasks from unsynced pages, syncs comments.
@@ -205,6 +212,52 @@ slate notion dashboard --weekly
 **Dashboard contents**: open/blocked counts, tasks closed/created, average cycle time.
 
 **Weekly digest**: completed tasks, created tasks, key decisions from checkpoints.
+
+## Sprint Filtering
+
+Filter synced tasks to a specific sprint. Requires a Notion Sprint relation property linking to a sprints database.
+
+### Configuration
+
+```yaml
+# In ~/.slate/notion.yaml:
+sprint_property: "Sprint"                              # Notion relation property name (default: "Sprint")
+sprint_database_id: "855124ff-3de5-4713-ae40-..."      # Auto-detected from the relation if not set
+sprint_id: "auto"                                      # "auto" = detect current sprint each pull
+```
+
+### Auto-Detection
+
+When `sprint_id: auto` or `--sprint=current` is used, Slate:
+
+1. Reads the task database schema to find the Sprint relation property
+2. Follows the relation to the sprints database
+3. Queries for a sprint with status "Current" (falls back to "In Progress")
+4. Filters the pull query to only tasks linked to that sprint
+
+The sprint database ID is cached in `notion.yaml` after first detection to avoid repeated lookups.
+
+### CLI Usage
+
+```bash
+# Auto-detect current sprint for this pull
+slate notion sync pull --sprint=current
+
+# Use a specific sprint page ID
+slate notion sync pull --sprint=<sprint-page-id>
+```
+
+The `--sprint` flag overrides the `sprint_id` config for that run. Combined with `user_id`, the pull filters by **both** assignee AND sprint (compound AND filter).
+
+### Persistent Configuration
+
+To always filter by the current sprint, set in `notion.yaml`:
+
+```yaml
+sprint_id: auto
+```
+
+Every pull will auto-detect the current sprint before querying.
 
 ## Rate Limiting
 
