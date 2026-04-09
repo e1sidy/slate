@@ -209,10 +209,24 @@ func (s *Store) UpdateStatus(ctx context.Context, id string, status Status, acto
 	}
 
 	now := timeNowUTC()
-	_, err = s.db.ExecContext(ctx,
-		"UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?",
-		string(status), now.Format(timeFormat), id,
-	)
+
+	// Set closed_at when transitioning to a terminal status, clear it when leaving.
+	if status.IsTerminal() && !task.Status.IsTerminal() {
+		_, err = s.db.ExecContext(ctx,
+			"UPDATE tasks SET status = ?, closed_at = ?, updated_at = ? WHERE id = ?",
+			string(status), now.Format(timeFormat), now.Format(timeFormat), id,
+		)
+	} else if !status.IsTerminal() && task.Status.IsTerminal() {
+		_, err = s.db.ExecContext(ctx,
+			"UPDATE tasks SET status = ?, closed_at = NULL, updated_at = ? WHERE id = ?",
+			string(status), now.Format(timeFormat), id,
+		)
+	} else {
+		_, err = s.db.ExecContext(ctx,
+			"UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?",
+			string(status), now.Format(timeFormat), id,
+		)
+	}
 	if err != nil {
 		return fmt.Errorf("update status: %w", err)
 	}

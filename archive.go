@@ -51,13 +51,34 @@ func (s *Store) Archive(ctx context.Context, before time.Time, archivePath strin
 		return &ArchiveResult{Archived: 0}, nil
 	}
 
+	// Sort tasks: children before parents to avoid FK violations on delete.
+	// Tasks with a parent_id that's in the archive set must be deleted first.
+	idSet := make(map[string]bool, len(tasks))
+	for _, t := range tasks {
+		idSet[t.ID] = true
+	}
+	// Partition into children-of-archived-parents first, then the rest.
+	var ordered []*Task
+	var parents []*Task
+	for _, t := range tasks {
+		if t.ParentID != "" && idSet[t.ParentID] {
+			ordered = append(ordered, t)
+		} else {
+			parents = append(parents, t)
+		}
+	}
+	ordered = append(ordered, parents...)
+
 	// Copy each task + related data to archive, then delete from main.
-	for _, task := range tasks {
+	for _, task := range ordered {
 		if err := copyTaskToArchive(ctx, s.db, archiveDB, task.ID); err != nil {
 			return nil, fmt.Errorf("archive task %s: %w", task.ID, err)
 		}
 		// Delete events referencing this task first (events don't have ON DELETE CASCADE).
 		s.db.ExecContext(ctx, "DELETE FROM events WHERE task_id = ?", task.ID)
+		// Clear parent_id references from non-archived children to avoid FK issues.
+		// Use NULL instead of '' because FK constraint validates non-empty strings.
+		s.db.ExecContext(ctx, "UPDATE tasks SET parent_id = NULL WHERE parent_id = ?", task.ID)
 		// Delete task from main DB (cascade deletes comments, deps, attrs, checkpoints, notion_sync).
 		if _, err := s.db.ExecContext(ctx, "DELETE FROM tasks WHERE id = ?", task.ID); err != nil {
 			return nil, fmt.Errorf("delete task %s: %w", task.ID, err)
